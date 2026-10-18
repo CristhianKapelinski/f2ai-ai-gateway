@@ -4,9 +4,6 @@ import json
 import sys
 from pathlib import Path
 
-PROJETO = "f2ai-ai-gateway-"
-
-
 def mib(texto):
     """Converte o texto do docker stats ("13.57MiB") para MiB."""
     for unidade, fator in (("KiB", 1 / 1024), ("MiB", 1), ("GiB", 1024)):
@@ -16,12 +13,12 @@ def mib(texto):
 
 
 def memoria(arquivo):
-    """Memória (MiB) somando os serviços, por leitura do docker stats."""
+    """Memória (MiB) somando os contêineres, em cada leitura do docker stats ("13.57MiB / 352MiB")."""
     leituras = []
     for bloco in arquivo.read_text().split("---")[1:]:
-        linhas = [l.split(",") for l in bloco.strip().splitlines() if l.startswith(PROJETO)]
+        linhas = bloco.strip().splitlines()
         if linhas:
-            leituras.append(sum(mib(m.split(" / ")[0]) for _, m in linhas))
+            leituras.append(sum(mib(linha.split(" / ")[0]) for linha in linhas))
     return leituras
 
 

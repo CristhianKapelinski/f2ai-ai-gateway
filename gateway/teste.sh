@@ -1,7 +1,7 @@
 #!/bin/sh
-# Confere o /chat/completions com a solução no ar: 200, 401, 422, 405 e a chave depois de reiniciar.
+# Confere o /chat/completions da versão final no ar: 200, 401, 422, 405 e a chave depois de reiniciar.
 set -e
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../versao-final"
 
 chave=$(docker compose exec -T -u www-data laravel php artisan chave:criar teste)
 corpo='{"messages":[{"role":"user","content":"oi"}]}'
