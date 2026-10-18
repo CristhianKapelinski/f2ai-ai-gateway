@@ -1,0 +1,100 @@
+{
+    "metrics": {
+        "http_req_tls_handshaking": {
+            "p(95)": 0,
+            "max": 0,
+            "med": 0
+        },
+        "data_sent": {
+            "count": 31080,
+            "rate": 517.9917050103339
+        },
+        "iterations": {
+            "count": 116,
+            "rate": 1.933302373912443
+        },
+        "vus": {
+            "value": 4,
+            "min": 4,
+            "max": 4
+        },
+        "http_req_blocked": {
+            "max": 0.247163,
+            "med": 0.0024200000000000003,
+            "p(95)": 0.00762925
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 116,
+            "value": 0
+        },
+        "http_req_connecting": {
+            "med": 0,
+            "p(95)": 0,
+            "max": 0.225622
+        },
+        "http_req_waiting": {
+            "max": 2023.245787,
+            "med": 2006.6599725,
+            "p(95)": 2011.893568
+        },
+        "http_req_sending": {
+            "p(95)": 0.018099999999999998,
+            "max": 0.638611,
+            "med": 0.010776
+        },
+        "vus_max": {
+            "value": 4,
+            "min": 4,
+            "max": 4
+        },
+        "http_req_duration{expected_response:true}": {
+            "med": 2006.701712,
+            "p(95)": 2011.9476515000001,
+            "max": 2023.312905
+        },
+        "http_req_duration": {
+            "max": 2023.312905,
+            "med": 2006.701712,
+            "p(95)": 2011.9476515000001
+        },
+        "http_reqs": {
+            "count": 116,
+            "rate": 1.933302373912443
+        },
+        "http_req_receiving": {
+            "p(95)": 0.0706775,
+            "max": 0.257222,
+            "med": 0.045281
+        },
+        "data_received": {
+            "rate": 794.5872756780141,
+            "count": 47676
+        },
+        "checks": {
+            "fails": 0,
+            "passes": 116,
+            "value": 1
+        },
+        "iteration_duration": {
+            "med": 2006.7675085,
+            "p(95)": 2012.02645025,
+            "max": 2023.728059
+        }
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "valida": {
+                    "fails": 0,
+                    "name": "valida",
+                    "path": "::valida",
+                    "id": "93618485b52ec92f7a2e9250ca7eb66b",
+                    "passes": 116
+                }
+            }
+    }
+}
