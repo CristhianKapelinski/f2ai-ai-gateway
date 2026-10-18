@@ -1,0 +1,27 @@
+# Limites do desafio, somando os serviços: 1 vCPU e 512 MB, no núcleo 0.
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+    cpuset: "0"
+    cpus: 0.1
+    mem_limit: 64m
+
+  laravel:
+    build:
+      context: .
+      dockerfile: docker/laravel.Dockerfile
+    environment:
+      DB_DATABASE: /dados/banco.sqlite
+    volumes:
+      - dados:/dados
+    cpuset: "0"
+    cpus: 0.9
+    mem_limit: 448m
+
+volumes:
+  dados:
