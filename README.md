@@ -88,7 +88,7 @@ carga/rodar.sh final       # ou inicial: 1, 4, 16 e 64 clientes, 60 s cada
 python3 carga/graficos.py  # gráficos (precisa de matplotlib)
 ```
 
-- **Ferramenta**: k6 1.3.0 em Docker, nos núcleos 1 a 3, para não disputar CPU com a solução.
+- **Ferramenta**: k6 1.3.0 em Docker, nos núcleos 1 a 3, para não disputar CPU com a solução. Os scripts (`carga/teste.ts`, `carga/misto.ts`) estão em TypeScript, que o k6 roda direto.
 - **Carga**: cada cliente manda uma requisição, espera a resposta e manda a próxima (`constant-vus`).
 - **Válida**: só resposta 200. Timeout do cliente: 60 s. Só conta o que termina dentro dos 60 s, e há 35 s de pausa antes de cada cenário para a fila do anterior esvaziar.
 - **CPU**: tempo de CPU que o kernel contou para os contêineres da versão (cgroup), somado e dividido pelos 60 s; 100% = 1 núcleo. O `docker stats` arredonda para 0% nessa carga, por isso não serve aqui.
@@ -119,11 +119,11 @@ Resultados completos em `resultados/inicial` e `resultados/final`.
 
 ### Autenticação sob carga
 
-`carga/misto.js`: 64 clientes por 60 s na versão final, metade com chave inválida.
+`carga/misto.ts`: 64 clientes por 60 s na versão final, metade com chave inválida.
 
 ```sh
 CHAVE=$(cd versao-final && docker compose exec -T -u www-data laravel php artisan chave:criar misto)
-docker run --rm --network host --cpuset-cpus 1-3 -v "$PWD/carga:/carga" -e CHAVE=$CHAVE grafana/k6:1.3.0 run /carga/misto.js
+docker run --rm --network host --cpuset-cpus 1-3 -v "$PWD/carga:/carga" -e CHAVE=$CHAVE grafana/k6:1.3.0 run /carga/misto.ts
 ```
 
 | clientes | respostas certas | por segundo | erradas |
