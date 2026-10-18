@@ -13,19 +13,18 @@ def mib(texto):
     return numero * {"KiB": 1 / 1024, "MiB": 1, "GiB": 1024}.get(unidade, 1 / 1024**2)
 
 
-def recursos(arquivo):
-    """CPU (% de um núcleo) e memória (MiB) somando os serviços, por leitura."""
-    cpu, mem = [], []
+def memoria(arquivo):
+    """Memória (MiB) somando os serviços, por leitura do docker stats."""
+    leituras = []
     for bloco in arquivo.read_text().split("---")[1:]:
         linhas = [l.split(",") for l in bloco.strip().splitlines() if l.startswith(PROJETO)]
         if linhas:
-            cpu.append(sum(float(c.rstrip("%")) for _, c, _ in linhas))
-            mem.append(sum(mib(m.split(" / ")[0]) for _, _, m in linhas))
-    return cpu, mem
+            leituras.append(sum(mib(m.split(" / ")[0]) for _, m in linhas))
+    return leituras
 
 
 pasta = Path(sys.argv[1])
-print("| simultâneas | válidas/s | mediana | p95 | erros | timeouts | CPU média / pico | memória média / pico |")
+print("| simultâneas | válidas/s | mediana | p95 | erros | timeouts | CPU média | memória média / pico |")
 print("|---:|---:|---:|---:|---:|---:|---:|---:|")
 for vus in (1, 4, 16, 64):
     k6 = json.loads((pasta / f"k6-{vus}.json").read_text())["metrics"]
@@ -33,9 +32,10 @@ for vus in (1, 4, 16, 64):
     erros = k6["checks"]["fails"]
     timeouts = k6.get("sem_resposta", {}).get("count", 0)
     duracao = k6["http_req_duration"]
-    cpu, mem = recursos(pasta / f"recursos-{vus}.csv")
+    # µs de CPU em 60 s; 100% = um núcleo inteiro
+    cpu = int((pasta / f"cpu-{vus}.txt").read_text()) / 60e6 * 100
+    mem = memoria(pasta / f"memoria-{vus}.csv")
     print(
         f"| {vus} | {validas / 60:.2f} | {duracao['med'] / 1000:.2f} s | {duracao['p(95)'] / 1000:.2f} s"
-        f" | {erros} | {timeouts} | {sum(cpu) / len(cpu):.0f}% / {max(cpu):.0f}%"
-        f" | {sum(mem) / len(mem):.0f} / {max(mem):.0f} MiB |"
+        f" | {erros} | {timeouts} | {cpu:.2f}% | {sum(mem) / len(mem):.0f} / {max(mem):.0f} MiB |"
     )
