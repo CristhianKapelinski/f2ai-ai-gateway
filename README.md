@@ -115,4 +115,4 @@ Toda chave inválida foi recusada. As válidas ficam um pouco abaixo do teto de 
 
 ## Uso de IA
 
-Usei ferramentas de IA para apoiar a escrita do código, dos testes de carga e da documentação. Revisei, executei e validei todas as partes.
+Usei ferramentas de IA na escrita do código, dos testes de carga e da documentação. Revisei, executei e validei todas as partes.
