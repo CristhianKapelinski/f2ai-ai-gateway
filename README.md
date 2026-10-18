@@ -2,6 +2,8 @@
 
 `POST /chat/completions` autenticado por chave de API, com resposta fictícia depois de 2 s, dentro de 1 vCPU, 512 MB e 4 workers.
 
+A solução é toda em PHP. O Laravel faz o cadastro de chaves, como o enunciado pede, e o `/chat/completions` roda num servidor PHP com Swoole, porque no Laravel cada worker atende uma requisição por vez. A justificativa de cada escolha está em [Decisões](#decisões).
+
 ![Vazão](resultados/vazao.png)
 
 ## Estrutura
@@ -123,13 +125,42 @@ Toda chave inválida foi recusada. As válidas ficam um pouco abaixo do teto de 
 
 ## Decisões
 
-- **O endpoint da versão final fica fora do Laravel**, num servidor Swoole de um arquivo. No PHP-FPM e no Octane cada worker atende uma requisição por vez, e o Laravel guarda estado global (a requisição atual, por exemplo) que não pode ser dividido entre corrotinas. O enunciado exige Laravel só no cadastro de chaves.
-- **SQLite num volume**: sem processo extra nem memória, e a chave sobrevive ao reinício.
-- **Só o hash SHA-256 da chave no banco**. A chave tem 192 bits aleatórios, então não precisa de um hash lento como o bcrypt, que a 32 verificações por segundo passaria do vCPU inteiro.
-- **Chaves em memória no gateway**: o banco só é consultado para uma chave ainda não vista, então uma chave nova vale na hora.
-- **Só a requisição válida espera**: chave errada recebe 401, corpo sem `messages` recebe 422 e método que não é POST recebe 405, na hora.
-- **A sessão do Laravel vai num cookie cifrado**, então a chave recém-criada não fica gravada no banco.
-- **Workers**: na versão final, 1 do PHP-FPM e 1 do gateway. O mestre do PHP-FPM só gerencia os filhos; o nginx só repassa conexões. Mesmo contando o nginx, são 3.
+### Arquitetura
+
+| Decisão | Por quê |
+|---|---|
+| Laravel no PHP-FPM para a tela de chaves | o enunciado exige Laravel no cadastro; PHP-FPM é o jeito padrão de rodar Laravel, e a tela é pouco usada, então não precisa de nada além disso |
+| `/chat/completions` fora do Laravel, num servidor Swoole (`gateway/servidor.php`) | o gargalo é o worker parado durante a espera de 2 s. O Swoole faz a espera numa corrotina (uma função que pausa e continua depois) e, enquanto ela dorme, o mesmo processo atende outras requisições. No PHP-FPM, cada processo atende uma requisição por vez, e o limite de 4 workers trava a vazão em 2 por segundo |
+| Não usar o Laravel Octane | ele roda o Laravel no Swoole, mas desliga as corrotinas (`'enable_coroutine' => false` em `src/Commands/StartSwooleCommand.php`, versão 2.22), então cada worker continua atendendo uma requisição por vez |
+| Não ligar as corrotinas do Octane à força | o Laravel guarda estado global no processo (a requisição atual, o usuário, a configuração). Com duas requisições pausadas no mesmo processo, uma pode pegar os dados da outra |
+| 1 processo no gateway | com 1 vCPU, mais processos não somam CPU; um event loop já usa o núcleo inteiro, e com 64 clientes o gateway usou menos de 0,5% |
+| nginx na frente | o PHP-FPM não fala HTTP; o nginx recebe as conexões e manda `/chat/completions` para o gateway e o resto para o Laravel |
+| Uma aplicação e duas pastas de configuração | as duas versões rodam o mesmo código; a diferença entre elas fica visível em três arquivos pequenos (`docker-compose.yml`, `nginx.conf`, `php-fpm.conf`). Na versão final, a rota de chat do Laravel continua no código, mas o nginx nunca a alcança (`location /chat/` devolve 404) |
+
+### Chaves e autenticação
+
+| Decisão | Por quê |
+|---|---|
+| SQLite num volume do Docker | não roda processo extra nem gasta memória do limite de 512 MB; a chave sobrevive ao reinício; há poucas escritas (criar chave) e muitas leituras |
+| Só o hash SHA-256 da chave no banco | se o banco vazar, ninguém usa as chaves. A chave tem 192 bits aleatórios, então não dá para adivinhar e não precisa de um hash lento como o bcrypt, que a 32 verificações por segundo passaria do vCPU inteiro |
+| Chave mostrada uma vez só | o banco só tem o hash, então a chave não pode ser recuperada depois |
+| Chaves válidas em memória no gateway | o banco só é consultado para uma chave ainda não vista; assim uma chave criada agora vale na hora, sem reiniciar |
+| Chaves inválidas não ficam em memória | quem manda chaves aleatórias faria a memória crescer sem limite; consultar o SQLite aguentou mais de 500 recusas por segundo |
+| Só a requisição válida espera | chave errada recebe 401, corpo sem `messages` recebe 422 e método que não é POST recebe 405, na hora, sem ocupar nada por 2 s |
+| Sessão do Laravel num cookie cifrado | a chave recém-criada passa para a tela pela sessão; no cookie, cifrada com a `APP_KEY`, ela não fica gravada no banco |
+| `APP_KEY` gerada ao iniciar o contêiner | o Laravel exige uma; gerar no início evita deixar segredo no repositório |
+
+### Limites e medição
+
+| Decisão | Por quê |
+|---|---|
+| CPU e memória divididas entre os serviços, somando 1 vCPU e 512 MB | o enunciado limita o conjunto; o Docker Compose não tem limite compartilhado, então cada serviço tem uma parte e a soma fecha o total |
+| nginx com 0,4 vCPU na versão final | com 0,1, ele travou no teste com chaves inválidas (mais de 500 requisições por segundo); o gateway usa pouco e ficou com 0,5 |
+| Todos os serviços no núcleo 0; o k6 nos núcleos 1 a 3 | a solução se comporta como 1 vCPU de verdade, e o gerador de carga não rouba CPU dela |
+| Workers: 4 do PHP-FPM na inicial; 1 do PHP-FPM e 1 do gateway na final | é o limite do enunciado. O mestre do PHP-FPM só gerencia os filhos e o nginx só repassa conexões; mesmo contando o nginx, a final tem 3 |
+| k6 com clientes em laço fechado | cada cliente manda, espera a resposta e manda a próxima: é o "1, 4, 16 e 64 requisições simultâneas" do enunciado |
+| Só conta o que termina dentro dos 60 s, com 35 s de pausa antes de cada cenário | o k6 seguia contando respostas depois do fim, e a fila de um cenário da versão inicial atrasava o seguinte; os dois inflavam ou derrubavam os números |
+| CPU pelo cgroup, não pelo `docker stats` | o `docker stats` arredonda para 0% nessa carga; o cgroup é o tempo exato que o kernel contou para cada contêiner |
 
 ## Uso de IA
 
