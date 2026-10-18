@@ -52,6 +52,23 @@ docker run --rm -v "$PWD/app:/app" -w /app composer:2 sh -c "composer install -q
 
 ## Como funciona
 
+### O caminho de uma requisição
+
+![Caminho de uma requisição nas duas versões](resultados/caminho.png)
+
+1. O cliente manda `POST /chat/completions` com a chave. O nginx recebe a conexão.
+2. **Versão inicial:** o nginx passa a requisição a um dos 4 workers do PHP-FPM, que roda o Laravel (`app/routes/api.php`). O worker confere a chave, executa `sleep(2)` e responde. Durante esses 2 s ele fica parado e não atende mais ninguém; quem chega depois espera na fila.
+3. **Versão final:** o nginx passa a requisição ao gateway Swoole (`gateway/servidor.php`), que a atende numa corrotina (uma execução de função que pode pausar e continuar depois). Ele confere a chave, executa `Coroutine::sleep(2)` e responde. Durante esses 2 s, só aquela requisição fica pausada; o processo continua atendendo as outras.
+4. Nas duas versões, a tela de chaves é o Laravel no PHP-FPM. Ele grava o hash da chave no SQLite, e o gateway lê dali.
+
+### A espera no tempo, com 16 clientes
+
+![Espera no tempo nas duas versões](resultados/espera.png)
+
+Na versão inicial, só 4 requisições andam ao mesmo tempo (uma por worker), e as outras 12 ficam na fila: o último grupo espera 8 s. Na versão final, as 16 esperam juntas no mesmo processo, e todas recebem a resposta em 2 s.
+
+### Configuração de cada versão
+
 | | Versão inicial | Versão final |
 |---|---|---|
 | Tela de chaves | Laravel no PHP-FPM | Laravel no PHP-FPM |
