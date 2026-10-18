@@ -26,6 +26,8 @@ curl -X POST localhost:8080/chat/completions \
   -d '{"messages":[{"role":"user","content":"oi"}]}'
 ```
 
+Teste rápido do gateway (200, 401, 422, 405 e a chave depois de reiniciar): `gateway/teste.sh`
+
 Testes do Laravel:
 
 ```sh
@@ -51,13 +53,13 @@ carga/rodar.sh <nome>        # 1, 4, 16 e 64 clientes, 60 s cada
 python3 carga/graficos.py    # gráficos (precisa de matplotlib)
 ```
 
-A versão inicial está na tag `inicial`. Para medi-la com os scripts atuais: `git checkout inicial -- app docker docker-compose.yml && docker compose up -d --build --remove-orphans`, rodar `carga/rodar.sh`, e voltar com `git checkout main -- .`.
+A versão inicial está no branch `versao-inicial` (o código da tag `inicial` com os scripts de medição atuais): `git checkout versao-inicial && docker compose up -d --build --remove-orphans`, depois `carga/rodar.sh inicial`.
 
 - **Ferramenta**: k6 1.3.0 em Docker, nos núcleos 1 a 3, para não disputar CPU com a solução.
 - **Carga**: cada cliente manda uma requisição, espera a resposta e manda a próxima (`constant-vus`).
-- **Válida**: só resposta 200. Timeout do cliente: 60 s. Só conta o que termina dentro dos 60 s.
+- **Válida**: só resposta 200. Timeout do cliente: 60 s. Só conta o que termina dentro dos 60 s, e há 35 s de pausa antes de cada cenário para a fila do anterior esvaziar.
 - **CPU**: tempo de CPU que o kernel contou para os contêineres da solução (cgroup), somado e dividido pelos 60 s; 100% = 1 núcleo. O `docker stats` arredonda para 0% nessa carga, por isso não serve aqui.
-- **Memória**: `docker stats` a cada segundo, somando os serviços.
+- **Memória**: `docker stats` a cada 2 s, mais ou menos, somando os serviços. Na versão final, uns 30 MB são do worker do PHP-FPM com o Laravel carregado para a tela.
 - **Máquina**: AMD Ryzen 5 8600G (12 threads), 32 GB, Linux 7.0, Docker 29.4.
 
 Resultados completos em `resultados/inicial` e `resultados/final`.
@@ -67,18 +69,18 @@ Resultados completos em `resultados/inicial` e `resultados/final`.
 | simultâneas | válidas/s | mediana | p95 | erros | timeouts | CPU média | memória média / pico |
 |---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | 0.48 | 2.01 s | 2.01 s | 0 | 0 | 0.48% | 36 / 38 MiB |
-| 4 | 1.93 | 2.01 s | 2.02 s | 0 | 0 | 0.86% | 36 / 37 MiB |
-| 16 | 1.93 | 8.03 s | 8.07 s | 0 | 0 | 0.87% | 37 / 39 MiB |
-| 64 | 1.73 | 32.06 s | 36.01 s | 0 | 0 | 0.89% | 37 / 39 MiB |
+| 4 | 1.93 | 2.01 s | 2.01 s | 0 | 0 | 0.76% | 36 / 37 MiB |
+| 16 | 1.93 | 8.03 s | 8.05 s | 0 | 0 | 0.83% | 37 / 38 MiB |
+| 64 | 1.93 | 30.14 s | 32.13 s | 0 | 0 | 0.80% | 38 / 39 MiB |
 
 ### Final (gateway Swoole)
 
 | simultâneas | válidas/s | mediana | p95 | erros | timeouts | CPU média | memória média / pico |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | 0.48 | 2.00 s | 2.00 s | 0 | 0 | 0.03% | 24 / 25 MiB |
-| 4 | 1.93 | 2.00 s | 2.00 s | 0 | 0 | 0.05% | 24 / 25 MiB |
-| 16 | 7.73 | 2.00 s | 2.00 s | 0 | 0 | 0.13% | 25 / 28 MiB |
-| 64 | 30.93 | 2.00 s | 2.01 s | 0 | 0 | 0.44% | 27 / 28 MiB |
+| 1 | 0.48 | 2.00 s | 2.00 s | 0 | 0 | 0.03% | 41 / 41 MiB |
+| 4 | 1.93 | 2.00 s | 2.00 s | 0 | 0 | 0.05% | 41 / 41 MiB |
+| 16 | 7.73 | 2.00 s | 2.00 s | 0 | 0 | 0.14% | 42 / 43 MiB |
+| 64 | 30.93 | 2.00 s | 2.01 s | 0 | 0 | 0.46% | 45 / 46 MiB |
 
 ![Latência](resultados/latencia.png)
 
@@ -99,14 +101,14 @@ Toda chave inválida foi recusada. As válidas ficam um pouco abaixo do teto de 
 
 ## Gargalo, tentativas e limite
 
-- **Gargalo**: na versão inicial, o `sleep(2)` prende o worker os 2 s inteiros. Com 4 workers, saem no máximo 4 respostas a cada 2 s (2 por segundo), e o resto vira fila: com 64 clientes, a latência chega a 32 s. A CPU fica perto de 0%; o limite não é processamento, é worker parado.
-- **O que tentei**: mais workers e threads não são permitidos (contam no limite de 4). O ganho veio de não prender o worker na espera: o gateway em Swoole faz a espera numa corrotina e, enquanto ela dorme, atende as outras requisições. Um processo só dá conta, porque com 1 vCPU mais processos não somam CPU. No teste com chaves inválidas, o nginx travou nos 0,1 vCPU que tinha; passei para 0,4 e o gateway para 0,5.
-- **O que melhorou**: com 64 clientes, de 1,73 para 30,93 respostas válidas por segundo (cerca de 18 vezes), e a latência mediana de 32 s para 2 s. A CPU por resposta caiu junto: a versão inicial gastou 0,89% de um núcleo para 1,7 respostas por segundo; a final, 0,44% para 31.
+- **Gargalo**: na versão inicial, o `sleep(2)` prende o worker os 2 s inteiros. Com 4 workers, saem no máximo 4 respostas a cada 2 s (2 por segundo), e o resto vira fila: com 64 clientes, a latência chega a 30 s. A CPU fica perto de 0%; o limite não é processamento, é worker parado.
+- **O que tentei**: mais workers e threads não são permitidos (contam no limite de 4). Descartei o Laravel Octane sem rodar: ele usa o Swoole, mas desliga as corrotinas (`'enable_coroutine' => false` em `src/Commands/StartSwooleCommand.php`, versão 2.22), então cada worker continua atendendo uma requisição por vez. O ganho veio de não prender o worker na espera: o gateway em Swoole faz a espera numa corrotina e, enquanto ela dorme, atende as outras requisições. Um processo só dá conta, porque com 1 vCPU mais processos não somam CPU. No teste com chaves inválidas, o nginx travou nos 0,1 vCPU que tinha; passei para 0,4 e o gateway para 0,5.
+- **O que melhorou**: com 64 clientes, de 1,93 para 30,93 respostas válidas por segundo (16 vezes), e a latência mediana de 30 s para 2 s. A CPU por resposta caiu junto: a versão inicial gastou 0,80% de um núcleo para 1,9 respostas por segundo; a final, 0,46% para 31.
 - **Limite que permaneceu**: o próprio teste. Cada cliente espera 2 s por resposta, então a vazão máxima é clientes ÷ 2 s (32 por segundo com 64 clientes), e a versão final fica nesse teto em todos os cenários. Os números ficam um pouco abaixo porque as primeiras respostas só chegam depois de 2 s e o que está em andamento no segundo 60 é cortado. Acima disso, o primeiro limite real que apareceu foi a CPU do nginx: no teste com chaves inválidas, a mais de 500 requisições por segundo, ele chegou aos 0,4 vCPU dele.
 
 ## Decisões
 
-- **Laravel só no cadastro**, como o enunciado exige. O endpoint fica num servidor Swoole de um arquivo, porque no PHP-FPM cada worker atende uma requisição por vez.
+- **Laravel só no cadastro**, como o enunciado exige. O endpoint fica num servidor Swoole de um arquivo (`gateway/servidor.php`), porque no PHP-FPM e no Octane cada worker atende uma requisição por vez, e o Laravel guarda estado global (a requisição atual, por exemplo) que não pode ser dividido entre corrotinas.
 - **SQLite num volume**: sem processo extra nem memória, e a chave sobrevive ao reinício.
 - **Só o hash SHA-256 da chave no banco**. A chave tem 192 bits aleatórios, então não precisa de um hash lento como o bcrypt, que a 32 verificações por segundo passaria do vCPU inteiro.
 - **Chaves em memória no gateway**: o banco só é consultado para uma chave ainda não vista, então uma chave nova vale na hora.
