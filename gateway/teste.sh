@@ -12,6 +12,7 @@ confere() {
     shift 2
     obtido=$(curl -s -o /dev/null -w '%{http_code} em %{time_total} s' "$@" localhost:8080/chat/completions)
     echo "$nome: $obtido (esperado $esperado)"
+    # ${obtido%% *} é o primeiro campo do texto: o código HTTP
     [ "${obtido%% *}" = "$esperado" ]
 }
 

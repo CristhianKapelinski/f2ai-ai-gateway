@@ -8,9 +8,11 @@ PROJETO = "f2ai-ai-gateway-"
 
 
 def mib(texto):
-    numero = float(texto.rstrip("KMGiB"))
-    unidade = texto.lstrip("0123456789.")
-    return numero * {"KiB": 1 / 1024, "MiB": 1, "GiB": 1024}.get(unidade, 1 / 1024**2)
+    """Converte o texto do docker stats ("13.57MiB") para MiB."""
+    for unidade, fator in (("KiB", 1 / 1024), ("MiB", 1), ("GiB", 1024)):
+        if texto.endswith(unidade):
+            return float(texto[: -len(unidade)]) * fator
+    return float(texto.rstrip("B")) / 1024**2  # em bytes
 
 
 def memoria(arquivo):
