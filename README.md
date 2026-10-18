@@ -51,7 +51,7 @@ carga/rodar.sh <nome>        # 1, 4, 16 e 64 clientes, 60 s cada
 python3 carga/graficos.py    # gráficos (precisa de matplotlib)
 ```
 
-A versão inicial está na tag `inicial`: `git checkout inicial && docker compose up -d --build`, depois o mesmo `carga/rodar.sh`.
+A versão inicial está na tag `inicial`. Para medi-la com os scripts atuais: `git checkout inicial -- app docker docker-compose.yml && docker compose up -d --build --remove-orphans`, rodar `carga/rodar.sh`, e voltar com `git checkout main -- .`.
 
 - **Ferramenta**: k6 1.3.0 em Docker, nos núcleos 1 a 3, para não disputar CPU com a solução.
 - **Carga**: cada cliente manda uma requisição, espera a resposta e manda a próxima (`constant-vus`).
