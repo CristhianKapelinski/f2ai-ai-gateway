@@ -43,6 +43,13 @@ $servidor->set(['worker_num' => 1]);
 $servidor->on('request', function (Request $req, Response $res) use (&$validas) {
     $res->header('Content-Type', 'application/json');
 
+    if ($req->server['request_method'] !== 'POST') {
+        $res->status(405);
+        $res->end('{"error":"use POST"}');
+
+        return;
+    }
+
     if (! chaveValida($req->header['authorization'] ?? '', $validas)) {
         $res->status(401);
         $res->end('{"error":"chave inválida"}');
