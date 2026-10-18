@@ -16,7 +16,10 @@ cpu_total() {
 }
 
 for vus in 1 4 16 64; do
-    # memória dos serviços, uma leitura por segundo
+    # espera a fila do cenário anterior esvaziar (até 32 s com 64 clientes na versão inicial)
+    sleep 35
+
+    # memória dos serviços, uma leitura a cada 2 s, mais ou menos
     while true; do
         { echo ---; docker stats --no-stream --format '{{.Name}},{{.MemUsage}}'; } >> "$saida/memoria-$vus.csv"
     done &
