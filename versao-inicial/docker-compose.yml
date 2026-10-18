@@ -1,5 +1,6 @@
+# Versão inicial: tudo no Laravel, inclusive o /chat/completions (com sleep(2)).
 # Limites do desafio, somando os serviços: 1 vCPU e 512 MB, no núcleo 0.
-# Workers: 1 do PHP-FPM (tela) + 1 do gateway.
+# Workers: 4 do PHP-FPM.
 
 services:
   nginx:
@@ -7,40 +8,28 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
-    # o nginx procura o Laravel e o gateway ao iniciar
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    # o nginx procura o Laravel ao iniciar
     depends_on:
       - laravel
-      - gateway
     cpuset: "0"
-    cpus: 0.4
+    cpus: 0.1
     mem_limit: 64m
 
   laravel:
     build:
-      context: .
+      context: ..
       dockerfile: docker/laravel.Dockerfile
     environment:
       DB_DATABASE: /dados/banco.sqlite
       # a chave recém-criada passa num cookie cifrado, não no banco
       SESSION_DRIVER: cookie
     volumes:
+      - ./php-fpm.conf:/usr/local/etc/php-fpm.d/zz-desafio.conf:ro
       - dados:/dados
     cpuset: "0"
-    cpus: 0.1
-    mem_limit: 96m
-
-  gateway:
-    image: phpswoole/swoole:6.2.3-php8.4-alpine
-    command: php /gateway/servidor.php
-    environment:
-      DB_DATABASE: /dados/banco.sqlite
-    volumes:
-      - ./gateway:/gateway:ro
-      - dados:/dados
-    cpuset: "0"
-    cpus: 0.5
-    mem_limit: 352m
+    cpus: 0.9
+    mem_limit: 448m
 
 volumes:
   dados:

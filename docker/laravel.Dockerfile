@@ -8,7 +8,6 @@ COPY app/ .
 RUN composer install --no-dev --optimize-autoloader --no-interaction \
     && chown -R www-data:www-data storage bootstrap/cache
 
-COPY docker/php-fpm.conf /usr/local/etc/php-fpm.d/zz-desafio.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
 
