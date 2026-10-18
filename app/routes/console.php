@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
+use App\Models\ApiKey;
 use Illuminate\Support\Facades\Artisan;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+Artisan::command('chave:criar {nome}', function (string $nome) {
+    $this->line(ApiKey::gerar($nome));
+})->purpose('Cria uma chave de API e mostra o texto dela');
