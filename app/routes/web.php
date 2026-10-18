@@ -1,7 +1,13 @@
 <?php
 
-use App\Http\Controllers\ChaveController;
+use App\Models\ApiKey;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [ChaveController::class, 'index'])->name('chaves.index');
-Route::post('/chaves', [ChaveController::class, 'store'])->name('chaves.store');
+Route::get('/', fn () => view('chaves', ['chaves' => ApiKey::latest()->get()]));
+
+Route::post('/chaves', function (Request $request) {
+    $dados = $request->validate(['nome' => 'required|string|max:100']);
+
+    return redirect('/')->with('chave', ApiKey::gerar($dados['nome']));
+});

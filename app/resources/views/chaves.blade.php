@@ -24,7 +24,7 @@
         </div>
     @endif
 
-    <form method="post" action="{{ route('chaves.store') }}">
+    <form method="post" action="/chaves">
         @csrf
         <input name="nome" placeholder="Nome da chave" required maxlength="100" value="{{ old('nome') }}">
         <button type="submit">Criar chave</button>
