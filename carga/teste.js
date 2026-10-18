@@ -7,10 +7,10 @@ const corpo = JSON.stringify({ messages: [{ role: 'user', content: 'oi' }] });
 const cabecalhos = { Authorization: `Bearer ${__ENV.CHAVE}`, 'Content-Type': 'application/json' };
 
 export const options = {
-  vus: Number(__ENV.VUS),
-  duration: '60s',
-  // conta só o que termina dentro dos 60 s
-  gracefulStop: '0s',
+  scenarios: {
+    // conta só o que termina dentro dos 60 s
+    carga: { executor: 'constant-vus', vus: Number(__ENV.VUS), duration: '60s', gracefulStop: '0s' },
+  },
   summaryTrendStats: ['med', 'p(95)', 'max'],
 };
 
