@@ -22,6 +22,8 @@ services:
       dockerfile: docker/laravel.Dockerfile
     environment:
       DB_DATABASE: /dados/banco.sqlite
+      # a chave recém-criada passa num cookie cifrado, não no banco
+      SESSION_DRIVER: cookie
     volumes:
       - dados:/dados
     cpuset: "0"
