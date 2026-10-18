@@ -24,7 +24,7 @@ for vus in 1 4 16 64; do
     antes=$(cpu_total)
 
     # o gerador fica fora do núcleo 0, onde está a solução
-    docker run --rm --network host --cpuset-cpus 1-3 -v "$PWD/carga:/carga" -v "$PWD/$saida:/saida" \
+    docker run --rm -u "$(id -u)" --network host --cpuset-cpus 1-3 -v "$PWD/carga:/carga" -v "$PWD/$saida:/saida" \
         -e CHAVE="$chave" -e VUS="$vus" grafana/k6:1.3.0 run --quiet \
         --summary-export "/saida/k6-$vus.json" /carga/teste.js
 
