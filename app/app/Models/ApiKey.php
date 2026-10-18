@@ -17,4 +17,9 @@ class ApiKey extends Model
 
         return $chave;
     }
+
+    public static function valida(?string $chave): bool
+    {
+        return $chave !== null && static::where('hash', hash('sha256', $chave))->exists();
+    }
 }
